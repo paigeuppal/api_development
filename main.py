@@ -92,3 +92,40 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         "adjusted_revenue": round(adj_revenue, 2),
         "roi_percentage": round(roi, 2)
     }
+    
+    
+# Schema for inputting data
+class MovieCreateUpdate(BaseModel):
+    title: str
+    release_year: int
+    budget: float
+    revenue: float
+
+# CREATE (POST) - ability to add a new film to the database, with duplication validation 
+@app.post("/movies/")
+def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db)):
+    
+    # checking for film with the same title (case-insensitive) and release year to prevent duplicates
+    existing_movie = db.query(Movie).filter(
+        Movie.title.ilike(movie.title), 
+        Movie.release_year == movie.release_year
+    ).first() 
+
+    if existing_movie:
+        # If movie exists in database, throw 400 Bad Request error
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Error: '{movie.title}' ({movie.release_year}) already exists in the database with ID {existing_movie.id}."
+        )
+
+    # if film not in database, create the new movie record and add to database
+    new_movie = Movie(
+        title=movie.title,
+        release_year=movie.release_year,
+        budget=movie.budget,
+        revenue=movie.revenue
+    )
+    db.add(new_movie)
+    db.commit()
+    db.refresh(new_movie)
+    return {"message": f"Added '{new_movie.title}' to the database successfully.", "movie_id": new_movie.id}
