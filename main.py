@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi_mcp import FastApiMCP
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
@@ -236,3 +237,7 @@ def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     
     # return top n movies, where n is determined by user 
     return {"leaderboard_size": top, "top_movies": leaderboard[:top]}
+
+# create and mount the MCP server directly to FastAPI app
+mcp = FastApiMCP(app)
+mcp.mount_sse()
