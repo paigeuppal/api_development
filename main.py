@@ -190,3 +190,49 @@ def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = 
             "revenue": db_movie.revenue
         }
     }
+
+# Analytics endpoint - calculates the top n most profitable movies adjusted for inflation
+@app.get("/analytics/leaderboard")
+def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
+    
+    # fetch all movies and all inflation rates at once
+    movies = db.query(Movie).all()
+    rates = db.query(InflationRate).all()
+    
+    if not movies or not rates:
+        raise HTTPException(status_code=400, detail="Not enough data to calculate a leaderboard.")
+    
+    # create a dictionary to look up CPI 
+    cpi_map = {rate.year: rate.cpi for rate in rates}
+    
+    # find most recent CPI to use as today's inflation rate for adjustment calculations
+    modern_cpi = max(rates, key=lambda x: x.year).cpi
+    
+    leaderboard = []
+    
+    # loop through each movie, calculate the adjusted budget, revenue, and ROI, and add to the leaderboard list
+    for movie in movies:
+        historical_cpi = cpi_map.get(movie.release_year)
+        
+        # Skip movies if we don't have inflation data for their specific release year
+        if not historical_cpi:
+            continue 
+            
+        multiplier = modern_cpi / historical_cpi
+        adj_budget = movie.budget * multiplier
+        adj_revenue = movie.revenue * multiplier
+        
+        roi = ((adj_revenue - adj_budget) / adj_budget) * 100 if adj_budget > 0 else 0
+        
+        leaderboard.append({
+            "movie_id": movie.id,
+            "title": movie.title,
+            "release_year": movie.release_year,
+            "roi_percentage": round(roi, 2)
+        })
+        
+    # sort the leaderboard by ROI in descending order so the most profitable movies are at the top
+    leaderboard.sort(key=lambda x: x["roi_percentage"], reverse=True)
+    
+    # return top n movies, where n is determined by user 
+    return {"leaderboard_size": top, "top_movies": leaderboard[:top]}
