@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from typing import Optional
 
 
 # Connects to blockbuster.db 
@@ -101,7 +102,7 @@ class MovieCreateUpdate(BaseModel):
     budget: float
     revenue: float
 
-# CREATE (POST) - ability to add a new film to the database, with duplication validation 
+# CREATE endpoint - ability to add a new film to the database, with duplication validation 
 @app.post("/movies/")
 def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db)):
     
@@ -129,3 +130,63 @@ def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_movie)
     return {"message": f"Added '{new_movie.title}' to the database successfully.", "movie_id": new_movie.id}
+
+# UPDATE endpoint - Amend existing movie data by ID, overwrites all of the fields 
+@app.put("/movies/{movie_id}")
+def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = Depends(get_db)):
+    db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    
+    # check if movie exists in database, if not return 404 error
+    if not db_movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+        
+    # update and overwrite the old data with the new data
+    db_movie.title = updated_movie.title
+    db_movie.release_year = updated_movie.release_year
+    db_movie.budget = updated_movie.budget
+    db_movie.revenue = updated_movie.revenue
+    
+    db.commit()
+    db.refresh(db_movie)
+    return {"message": f"Successfully updated movie ID {movie_id}", "title": db_movie.title}
+
+# Schema for PARTIAL updates (PATCH)
+class MovieUpdate(BaseModel):
+    title: Optional[str] = None
+    release_year: Optional[int] = None
+    budget: Optional[float] = None
+    revenue: Optional[float] = None
+    
+# PATCH - Partially updating fields - update fields without overwriting entire record 
+@app.patch("/movies/{movie_id}")
+def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = Depends(get_db)):
+    
+    # check if movie exists in database, if not return 404 error
+    db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    if not db_movie:
+        raise HTTPException(status_code=404, detail=f"Movie with ID {movie_id} not found.")
+        
+    old_title = db_movie.title # saved for the success message 
+    
+    # exclude_unset=True to ignore any fields that were not included in the PATCH request
+    # so only update the fields that were actually sent by the user
+    update_data_dict = updated_data.model_dump(exclude_unset=True)
+    
+    # loop through and update only those specific fields
+    for key, value in update_data_dict.items():
+        setattr(db_movie, key, value)
+    
+    db.commit()
+    db.refresh(db_movie)
+    
+    # Return the fully updated movie so the user knows exactly what they just changed
+    return {
+        "message": f"Successfully updated '{old_title}'!",
+        "current_movie_state": {
+            "id": db_movie.id,
+            "title": db_movie.title,
+            "release_year": db_movie.release_year,
+            "budget": db_movie.budget,
+            "revenue": db_movie.revenue
+        }
+    }
