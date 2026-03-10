@@ -3,8 +3,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# import app and database components from main.py file
-from main import app, get_db, Base, Movie, InflationRate
+# import app and database components from main.py and database.py files
+from main import app
+from database import get_db, Base, Movie, InflationRate
 
 # use sqlite:///:memory: to create a database just for testing locally 
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
