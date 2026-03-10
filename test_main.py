@@ -136,3 +136,49 @@ def test_delete_movie():
     # Prove it's actually gone by trying to search for it again
     verify_response = client.get("/movies/search/?title=test")
     assert verify_response.status_code == 404
+    
+# Test 7: Reject movies that have a release year in the future - validation test
+def test_create_movie_future_year():
+    response = client.post(
+        "/movies/",
+        json={
+            "title": "Time Traveler's Dilemma",
+            "release_year": 3050, # invalid future year
+            "budget": 100000,
+            "revenue": 500000
+        }
+    )
+    # Prove Pydantic blocked it automatically
+    assert response.status_code == 422 
+    # Prove the error message specifically mentions the release_year field
+    assert response.json()["detail"][0]["loc"][-1] == "release_year"
+
+
+# Test 8: Reject movies that have a negative budget - validation test
+def test_create_movie_negative_budget():
+    response = client.post(
+        "/movies/",
+        json={
+            "title": "The Debt",
+            "release_year": 2010,
+            "budget": -50000, # invalid negative budget
+            "revenue": 1000000
+        }
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][-1] == "budget"
+
+
+# Test 9: reject movies that have an empty title - validation test
+def test_create_movie_empty_title():
+    response = client.post(
+        "/movies/",
+        json={
+            "title": "", # invalid empty title
+            "release_year": 2020,
+            "budget": 5000,
+            "revenue": 10000
+        }
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"][-1] == "title"
