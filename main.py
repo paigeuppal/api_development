@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi_mcp import FastApiMCP
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from database import get_db, Base, Movie, InflationRate
 from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate
@@ -10,6 +11,14 @@ from security import verify_api_key
 app = FastAPI(
     title="Adjusted Blockbuster API",
     description="An API that calculates what the box office revenue of a movie would be in today's ecconomy"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows any frontend to access the API 
+    allow_credentials=True,
+    allow_methods=["*"], # Allows all HTTP methods
+    allow_headers=["*"], # Allows all headers 
 )
 
 @app.get("/")
@@ -56,16 +65,18 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         "roi_percentage": round(roi, 2)
     }
     
-# SEARCH endpoint - find movies by a partial title match as not guaranteed to know movieID
+
+# SEARCH endpoint with PAGINATION
 @app.get("/movies/search/")
-def search_movies(title: str, db: Session = Depends(get_db)):
+def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     
     # case-insensitive search for movies with titles that contain the search term, returns a list of matches
-    movies = db.query(Movie).filter(Movie.title.ilike(f"%{title}%")).all()
+    # Use .offset(skip) and .limit(limit) to slice the database results
+    movies = db.query(Movie).filter(Movie.title.ilike(f"%{title}%")).offset(skip).limit(limit).all()
     
     if not movies:
         raise HTTPException(status_code=404, detail=f"No movies found matching '{title}'.")
-        
+    
     # create a simplified list of results to output to user
     results = []
     for m in movies:
@@ -75,7 +86,12 @@ def search_movies(title: str, db: Session = Depends(get_db)):
             "release_year": m.release_year
         })
         
-    return {"matches_found": len(results), "results": results}
+    return {
+        "matches_returned": len(results), 
+        "skip": skip, 
+        "limit": limit, 
+        "results": results
+    }
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
 @app.post("/movies/")

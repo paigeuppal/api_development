@@ -97,7 +97,7 @@ def test_create_duplicate_movie():
     
     # prove the API sent error message back
     assert "already exists in the database" in response.json()["detail"]
-    
+
 # Test 4: SEARCH happy path - user searches for a movie by partial title and finds it successfully
 def test_search_movie():
     # Search for a partial string 
@@ -106,8 +106,13 @@ def test_search_movie():
     assert response.status_code == 200
     data = response.json()
     
-    # Prove it found at least 1 match
-    assert data["matches_found"] >= 1
+    # Prove it found at least 1 match using the new key name
+    assert data["matches_returned"] >= 1
+    
+    # Prove the pagination defaults are working (skip=0, limit=10)
+    assert data["skip"] == 0
+    assert data["limit"] == 10
+    
     # Prove the title of the found movie matches the one created earlier 
     assert data["results"][0]["title"] == "Movie Test"
 
