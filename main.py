@@ -1,56 +1,9 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi_mcp import FastApiMCP
-#from pydantic import BaseModel
-#from sqlalchemy import create_engine, Column, Integer, String, Float
-#from sqlalchemy.orm import declarative_base, sessionmaker, Session
-#from typing import Optional
-
-#from fastapi import FastAPI, HTTPException, Depends
-#from fastapi_mcp import FastApiMCP
 from sqlalchemy.orm import Session
 
 from database import get_db, Base, Movie, InflationRate
 from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate
-
-
-# # Connects to blockbuster.db 
-# SQLALCHEMY_DATABASE_URL = "sqlite:///blockbuster.db"
-# engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-# Base = declarative_base()
-
-# # Redefine models so FastAPI knows how to read the tables
-# class Movie(Base):
-#     __tablename__ = 'movies'
-#     id = Column(Integer, primary_key=True, index=True)
-#     title = Column(String, nullable=False)
-#     release_year = Column(Integer, nullable=False)
-#     budget = Column(Float, nullable=False)
-#     revenue = Column(Float, nullable=False)
-
-# class InflationRate(Base):
-#     __tablename__ = 'inflation_rates'
-#     year = Column(Integer, primary_key=True)
-#     cpi = Column(Float, nullable=False)
-
-# # Dependency to safely open and close a database connection for each user request
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
-
-# # pydantic model for the API response - ensures consistent output format and validation
-# class MovieAdjustedResponse(BaseModel):
-#     movie_id: int
-#     title: str
-#     release_year: int
-#     original_budget: float
-#     original_revenue: float
-#     adjusted_budget: float # inflation adjusted budget
-#     adjusted_revenue: float # inflation adjusted revenue
-#     roi_percentage: float # Return on Investment percentage based on adjusted values
 
 # FastAPI app instance
 app = FastAPI(
@@ -122,13 +75,6 @@ def search_movies(title: str, db: Session = Depends(get_db)):
         })
         
     return {"matches_found": len(results), "results": results}
-    
-# # Schema for inputting data
-# class MovieCreateUpdate(BaseModel):
-#     title: str
-#     release_year: int
-#     budget: float
-#     revenue: float
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
 @app.post("/movies/")
@@ -177,13 +123,6 @@ def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = 
     db.commit()
     db.refresh(db_movie)
     return {"message": f"Successfully updated movie ID {movie_id}", "title": db_movie.title}
-
-# # Schema for PARTIAL updates (PATCH)
-# class MovieUpdate(BaseModel):
-#     title: Optional[str] = None
-#     release_year: Optional[int] = None
-#     budget: Optional[float] = None
-#     revenue: Optional[float] = None
     
 # PATCH - Partially updating fields - update fields without overwriting entire record 
 @app.patch("/movies/{movie_id}")

@@ -19,7 +19,7 @@ class MovieCreateUpdate(BaseModel):
     budget: float
     revenue: float
 
-# Schema for PARTIAL updates (PATCH)
+# Schema for partial updates (PATCH)
 class MovieUpdate(BaseModel):
     title: Optional[str] = None
     release_year: Optional[int] = None
