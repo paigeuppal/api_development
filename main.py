@@ -95,6 +95,26 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         "roi_percentage": round(roi, 2)
     }
     
+# SEARCH endpoint - find movies by a partial title match as not guaranteed to know movieID
+@app.get("/movies/search/")
+def search_movies(title: str, db: Session = Depends(get_db)):
+    
+    # case-insensitive search for movies with titles that contain the search term, returns a list of matches
+    movies = db.query(Movie).filter(Movie.title.ilike(f"%{title}%")).all()
+    
+    if not movies:
+        raise HTTPException(status_code=404, detail=f"No movies found matching '{title}'.")
+        
+    # create a simplified list of results to output to user
+    results = []
+    for m in movies:
+        results.append({
+            "movie_id": m.id,
+            "title": m.title,
+            "release_year": m.release_year
+        })
+        
+    return {"matches_found": len(results), "results": results}
     
 # Schema for inputting data
 class MovieCreateUpdate(BaseModel):
