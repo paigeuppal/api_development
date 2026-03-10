@@ -238,6 +238,18 @@ def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     # return top n movies, where n is determined by user 
     return {"leaderboard_size": top, "top_movies": leaderboard[:top]}
 
+# DELETE endpoint - Remove a movie from the database
+@app.delete("/movies/{movie_id}")
+def delete_movie(movie_id: int, db: Session = Depends(get_db)):
+    db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
+    
+    if not db_movie:
+        raise HTTPException(status_code=404, detail=f"Movie with ID {movie_id} not found.")
+        
+    db.delete(db_movie)
+    db.commit()
+    return {"message": f"Successfully deleted '{db_movie.title}' from the database."}
+
 # create and mount the MCP server directly to FastAPI app
 mcp = FastApiMCP(app)
 mcp.mount_sse()
