@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db, Base, Movie, InflationRate
 from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate
+from security import verify_api_key
 
 # FastAPI app instance
 app = FastAPI(
@@ -78,7 +79,7 @@ def search_movies(title: str, db: Session = Depends(get_db)):
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
 @app.post("/movies/")
-def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db)):
+def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # checking for film with the same title (case-insensitive) and release year to prevent duplicates
     existing_movie = db.query(Movie).filter(
@@ -107,7 +108,7 @@ def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db)):
 
 # UPDATE endpoint - Amend existing movie data by ID, overwrites all of the fields 
 @app.put("/movies/{movie_id}")
-def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = Depends(get_db)):
+def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
     # check if movie exists in database, if not return 404 error
@@ -126,7 +127,7 @@ def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = 
     
 # PATCH - Partially updating fields - update fields without overwriting entire record 
 @app.patch("/movies/{movie_id}")
-def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = Depends(get_db)):
+def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # check if movie exists in database, if not return 404 error
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
@@ -206,7 +207,7 @@ def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
 
 # DELETE endpoint - Remove a movie from the database
 @app.delete("/movies/{movie_id}")
-def delete_movie(movie_id: int, db: Session = Depends(get_db)):
+def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
     if not db_movie:

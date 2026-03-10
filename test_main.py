@@ -1,3 +1,7 @@
+import os
+# Inject a fake test key into the environment BEFORE the app imports security.py
+os.environ["API_KEY"] = "YouShallNotPass"
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -52,6 +56,7 @@ def test_create_movie():
     # Test client sends a POST request to the /movies/ endpoint with a new movie's data in JSON format
     response = client.post(
         "/movies/",
+        headers={"X-API-Key": "YouShallNotPass"}, # include the testing API key in the header to pass authentication
         json={
             "title": "Movie Test",
             "release_year": 2024,
@@ -78,6 +83,7 @@ def test_create_duplicate_movie():
     # already exists in the database from previous test
     response = client.post(
         "/movies/",
+        headers={"X-API-Key": "YouShallNotPass"},
         json={
             "title": "Movie Test",
             "release_year": 2024,
@@ -111,6 +117,7 @@ def test_update_movie():
     # Only update the revenue, leaving the budget completely untouched
     response = client.patch(
         "/movies/1", #ID 1 because it's the first movie created in Test 2
+        headers={"X-API-Key": "YouShallNotPass"},
         json={"revenue": 9999999}
     )
     
@@ -128,7 +135,7 @@ def test_update_movie():
 # Test 6: DELETE happy path - user deletes a movie successfully
 def test_delete_movie():
     # Delete the movie
-    response = client.delete("/movies/1")
+    response = client.delete("/movies/1", headers={"X-API-Key": "YouShallNotPass"})
     
     assert response.status_code == 200
     assert "Successfully deleted" in response.json()["message"]
@@ -141,6 +148,7 @@ def test_delete_movie():
 def test_create_movie_future_year():
     response = client.post(
         "/movies/",
+        headers={"X-API-Key": "YouShallNotPass"},
         json={
             "title": "Time Traveler's Dilemma",
             "release_year": 3050, # invalid future year
@@ -158,6 +166,7 @@ def test_create_movie_future_year():
 def test_create_movie_negative_budget():
     response = client.post(
         "/movies/",
+        headers={"X-API-Key": "YouShallNotPass"},
         json={
             "title": "The Debt",
             "release_year": 2010,
@@ -173,6 +182,7 @@ def test_create_movie_negative_budget():
 def test_create_movie_empty_title():
     response = client.post(
         "/movies/",
+        headers={"X-API-Key": "YouShallNotPass"},
         json={
             "title": "", # invalid empty title
             "release_year": 2020,
@@ -182,3 +192,25 @@ def test_create_movie_empty_title():
     )
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"][-1] == "title"
+    
+# Test 10: reject missing API key - authentication test
+def test_missing_api_key():
+    # Send a request with NO header at all
+    response = client.delete("/movies/1")
+    
+    assert response.status_code == 401
+    # expect FastAPI's default "Missing Header" message here
+    assert response.json()["detail"] == "Not authenticated"
+
+
+# Test 11: reject incorrect API key - authentication test
+def test_wrong_api_key():
+    # Send a request with a completely incorrect API key
+    response = client.delete(
+        "/movies/1",
+        headers={"X-API-Key": "HoustonWeHaveAProblem"}
+    )
+    
+    assert response.status_code == 401
+    # expect custom error message
+    assert response.json()["detail"] == "Unauthorised: Invalid API Key"
