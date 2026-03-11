@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi_mcp import FastApiMCP
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 from database import get_db, Base, Movie, InflationRate
 from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate
@@ -37,7 +38,7 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     # search for historical inflation rate (CPI) for the year the movie came out
     historical_cpi = db.query(InflationRate).filter(InflationRate.year == movie.release_year).first()
     
-    # search for the most recent inflation rate in database 
+    # search for the most recent , tags = ["Analytics"]inflation rate in database 
     modern_cpi = db.query(InflationRate).order_by(InflationRate.year.desc()).first()
 
     # check for inflation data, don't calculate if missing 
@@ -52,6 +53,15 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     
     # calculate ROI %: ((Revenue - Budget) / Budget) * 100
     roi = ((adj_revenue - adj_budget) / adj_budget) * 100 if adj_budget > 0 else 0
+    
+    # clean up the genres field so it's easier to read - extract just the genre names from the original stringified list of dictionaries
+    formatted_genres = None
+    if movie.genres:
+        try:
+            genre_list = json.loads(movie.genres)
+            formatted_genres = ", ".join([g["name"] for g in genre_list])
+        except json.JSONDecodeError:
+            formatted_genres = movie.genres
 
     # Package response into schema previously defined & return as JSON
     return {
@@ -62,10 +72,11 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         "original_revenue": movie.revenue,
         "adjusted_budget": round(adj_budget, 2),
         "adjusted_revenue": round(adj_revenue, 2),
-        "roi_percentage": round(roi, 2)
+        "roi_percentage": round(roi, 2),
+        "genres": formatted_genres  # <--- Use the clean variable here!
     }
     
-
+    
 # SEARCH endpoint with pagination
 @app.get("/movies/search/")
 def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
@@ -197,7 +208,8 @@ def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_ke
         title=movie.title,
         release_year=movie.release_year,
         budget=movie.budget,
-        revenue=movie.revenue
+        revenue=movie.revenue,
+        genres=movie.genres
     )
     db.add(new_movie)
     db.commit()
@@ -218,6 +230,7 @@ def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = 
     db_movie.release_year = updated_movie.release_year
     db_movie.budget = updated_movie.budget
     db_movie.revenue = updated_movie.revenue
+    db_movie.genres = updated_movie.genres
     
     db.commit()
     db.refresh(db_movie)

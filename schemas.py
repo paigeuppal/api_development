@@ -15,6 +15,7 @@ class MovieAdjustedResponse(BaseModel):
     adjusted_budget: float 
     adjusted_revenue: float 
     roi_percentage: float 
+    genres: Optional[str] = None
 
 # Schema for inputting data (POST/PUT)
 class MovieCreateUpdate(BaseModel):
@@ -27,6 +28,7 @@ class MovieCreateUpdate(BaseModel):
     # finances must be >=to 0
     budget: float = Field(..., ge=0)
     revenue: float = Field(..., ge=0)
+    genres: Optional[str] = None
 
 # Schema for partial updates (PATCH)
 class MovieUpdate(BaseModel):
@@ -34,3 +36,4 @@ class MovieUpdate(BaseModel):
     release_year: Optional[int] = Field(None, ge=1888, le=current_year + 1)
     budget: Optional[float] = Field(None, ge=0)
     revenue: Optional[float] = Field(None, ge=0)
+    genres: Optional[str] = None
