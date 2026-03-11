@@ -66,7 +66,7 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     }
     
 
-# SEARCH endpoint with PAGINATION
+# SEARCH endpoint with pagination
 @app.get("/movies/search/")
 def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     
@@ -92,6 +92,88 @@ def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depe
         "limit": limit, 
         "results": results
     }
+
+# ANALYTICS endpoint - Predictive analytics engine that calculates historical success rates, genre averages, and top comparable movies (Comps).
+@app.get("/analytics/success-predictor/", tags = ["Analytics"])
+def success_predictor(proposed_budget: float, genre: str, db: Session = Depends(get_db)):
+    """
+    Calculates historical success rates, genre averages, and top comparable movies (Comps).
+    """
+    
+    # define cohort bracket (+/- 20% of the proposed budget)
+    lower_bound = proposed_budget * 0.80
+    upper_bound = proposed_budget * 1.20
+
+    # look for movies in the database that fit the genre and are within the defined budget bracket
+    cohort_movies = db.query(Movie).filter(
+        Movie.budget >= lower_bound,
+        Movie.budget <= upper_bound,
+        Movie.budget > 0,
+        Movie.genres.ilike(f"%{genre}%")
+    ).all()
+
+    # look for all films in the genre, regardless of budget to calculate ROI average
+    all_genre_movies = db.query(Movie).filter(
+        Movie.budget > 0,
+        Movie.genres.ilike(f"%{genre}%")
+    ).all()
+
+    if not cohort_movies or not all_genre_movies:
+        return {
+            "error": f"Not enough historical data for the '{genre}' genre in this budget bracket."
+        }
+
+    # Calculate a success rate for the cohort: % of movies that made more money than they cost (profitability)
+    total_cohort = len(cohort_movies)
+    profitable_cohort = sum(1 for movie in cohort_movies if movie.revenue > movie.budget)
+    success_rate = (profitable_cohort / total_cohort) * 100
+
+    if success_rate >= 65:
+        rating, color, msg = "Strong Green Light", "green", f"Low Risk. '{genre}' movies in this budget bracket historically perform very well."
+    elif success_rate >= 40:
+        rating, color, msg = "Caution", "yellow", f"Moderate Risk. '{genre}' movies in this bracket have uncertain odds of profitability."
+    else:
+        rating, color, msg = "Scrap the Script", "red", f"High Risk. '{genre}' movies with this budget historically lose money."
+
+    # calculate the average ROI for the whole genre
+    total_genre_revenue = sum(m.revenue for m in all_genre_movies)
+    total_genre_budget = sum(m.budget for m in all_genre_movies)
+    avg_genre_roi = ((total_genre_revenue - total_genre_budget) / total_genre_budget) * 100 if total_genre_budget > 0 else 0
+
+    # Calculate the top 5 movie ROI for the movies with the most similar budget
+    # Sort all genre movies by the absolute difference between their budget and the proposed budget
+    closest_comps = sorted(all_genre_movies, key=lambda m: abs(m.budget - proposed_budget))[:5]
+    
+    top_5_list = [
+        {
+            "title": m.title, 
+            "release_year": m.release_year, 
+            "budget": m.budget, 
+            "revenue": m.revenue,
+            "roi_percentage": round(((m.revenue - m.budget) / m.budget) * 100, 2)
+        } 
+        for m in closest_comps
+    ]
+
+    return {
+        "predictor_parameters": {
+            "proposed_budget": proposed_budget,
+            "genre": genre
+        },
+        "risk_assessment": {
+            "cohort_size": total_cohort,
+            "success_rate_percentage": round(success_rate, 2),
+            "rating": rating,
+            "colour_code": color,
+            "analysis": msg
+        },
+        "genre_insights": {
+            "total_movies_analysed": len(all_genre_movies),
+            "average_historical_roi_percentage": round(avg_genre_roi, 2),
+            "closest_budget_comps": top_5_list
+        }
+    }
+
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
 @app.post("/movies/")
@@ -176,7 +258,7 @@ def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = 
     }
 
 # Analytics endpoint - calculates the top n most profitable movies adjusted for inflation
-@app.get("/analytics/leaderboard")
+@app.get("/analytics/leaderboard", tags = ["Analytics"])
 def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     
     # fetch all movies and all inflation rates at once

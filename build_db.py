@@ -31,6 +31,7 @@ class Movie(Base):
     release_year = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
     revenue = Column(Float, nullable=False)
+    genres = Column(String, nullable=True)
 
 class InflationRate(Base):
     __tablename__ = 'inflation_rates'
@@ -52,7 +53,8 @@ for _, row in movies_df.iterrows():
         title=row['original_title'],
         release_year=row['release_year'],
         budget=row['budget'],
-        revenue=row['revenue']
+        revenue=row['revenue'],
+        genres=str(row['genres'])
     )
     session.add(movie)
 

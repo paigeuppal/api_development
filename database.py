@@ -24,6 +24,7 @@ class Movie(Base):
     release_year = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
     revenue = Column(Float, nullable=False)
+    genres = Column(String, nullable=True)
 
 class InflationRate(Base):
     __tablename__ = 'inflation_rates'
