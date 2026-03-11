@@ -91,10 +91,21 @@ def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depe
     # create a simplified list of results to output to user
     results = []
     for m in movies:
+        # Clean the JSON genre string for the search results
+        formatted_genres = None
+        if m.genres:
+            try:
+                import json
+                genre_list = json.loads(m.genres)
+                formatted_genres = ", ".join([g["name"] for g in genre_list])
+            except Exception:
+                formatted_genres = m.genres
+
         results.append({
             "movie_id": m.id,
             "title": m.title,
-            "release_year": m.release_year
+            "release_year": m.release_year,
+            "genres": formatted_genres
         })
         
     return {
