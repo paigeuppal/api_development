@@ -397,28 +397,9 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = De
 def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
     return {"status": "authenticated", "message": "API Key is valid"}
 
-# # CREATE inflation data endpoint - Add new inflation data to the database (Admin only)
-# @app.post("/analytics/inflation/", tags=["Admin"])
-# def add_inflation_data(
-#     data: InflationCreate, 
-#     db: Session = Depends(get_db), 
-#     api_key: str = Depends(verify_api_key)
-# ):
-#     # Access the data using data.year and data.cpi
-#     existing = db.query(InflationRate).filter(InflationRate.year == data.year).first()
-    
-#     if existing:
-#         existing.cpi = data.cpi
-#         db.commit()
-#         return {"message": f"Updated CPI for {data.year}"}
-    
-#     new_rate = InflationRate(year=data.year, cpi=data.cpi)
-#     db.add(new_rate)
-#     db.commit()
-#     return {"message": f"Added new inflation data for {data.year}"}
 
 # CREATE endpoint - Fails if year already exists
-@app.post("/analytics/inflation/", tags=["Admin"])
+@app.post("/inflation/", tags=["Admin"])
 def create_inflation_data(
     data: InflationCreate, 
     db: Session = Depends(get_db), 
@@ -440,7 +421,7 @@ def create_inflation_data(
 
 
 # UPDATE endpoint - Fails if year doesn't exist
-@app.put("/analytics/inflation/{year}", tags=["Admin"])
+@app.put("/inflation/{year}", tags=["Admin"])
 def update_inflation_data(
     year: int, 
     cpi: float, # We just need the new CPI value

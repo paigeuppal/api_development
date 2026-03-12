@@ -296,7 +296,7 @@ def test_success_predictor_no_data():
 # Test 15: CREATE Inflation happy path - admin adds new CPI data successfully
 def test_create_inflation_success():
     response = client.post(
-        "/analytics/inflation/",
+        "/inflation/",
         headers={"X-API-Key": "YouShallNotPass"},
         json={
             "year": 2025,
@@ -312,14 +312,14 @@ def test_create_inflation_success():
 def test_create_inflation_duplicate():
     # 1. Create the initial record for 2026
     client.post(
-        "/analytics/inflation/",
+        "/inflation/",
         headers={"X-API-Key": "YouShallNotPass"},
         json={"year": 2026, "cpi": 325.0}
     )
     
     # 2. Attempt to create the exact same year again with a different CPI
     response = client.post(
-        "/analytics/inflation/",
+        "/inflation/",
         headers={"X-API-Key": "YouShallNotPass"},
         json={"year": 2026, "cpi": 330.0}
     )
@@ -333,7 +333,7 @@ def test_create_inflation_duplicate():
 def test_update_inflation_success():
     # 1. First, ensure the year 2027 exists
     client.post(
-        "/analytics/inflation/",
+        "/inflation/",
         headers={"X-API-Key": "YouShallNotPass"},
         json={"year": 2027, "cpi": 330.0}
     )
@@ -341,7 +341,7 @@ def test_update_inflation_success():
     # 2. Now, update it using the PUT endpoint
     # Note: CPI is passed as a query parameter based on your FastAPI route setup
     response = client.put(
-        "/analytics/inflation/2027?cpi=335.5",
+        "/inflation/2027?cpi=335.5",
         headers={"X-API-Key": "YouShallNotPass"}
     )
     
@@ -353,7 +353,7 @@ def test_update_inflation_success():
 def test_update_inflation_not_found():
     # Try to update a year we haven't created in the test database (like 2050)
     response = client.put(
-        "/analytics/inflation/2050?cpi=400.0",
+        "/inflation/2050?cpi=400.0",
         headers={"X-API-Key": "YouShallNotPass"}
     )
     
