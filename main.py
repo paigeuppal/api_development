@@ -11,7 +11,23 @@ from security import verify_api_key
 # FastAPI app instance
 app = FastAPI(
     title="Reel Returns API",
-    description="An API that calculates what the box office revenue of a movie would be in today's economy"
+    description="""
+Welcome to the **Reel Returns API**! This service bridges the gap between historical cinema and modern economics by calculating what the box office revenue of older movies would be in today's economy using Consumer Price Index (CPI) data.
+
+### Core Features & Endpoints
+* **Public Movie Data:** Search the vault for films and retrieve their inflation-adjusted budgets, revenues, and Return on Investment (ROI).
+* **Analytics Engine:** View the all-time profitability leaderboard, or use the *Success Predictor* to simulate the financial risk of a proposed movie based on historical genre and budget comparables.
+* **Admin Vault:** Protected CRUD operations to manage the movie database and update annual inflation rates.
+
+### Authentication Process
+Endpoints tagged with **(Admin)** are protected and require authentication to access. 
+
+To authenticate:
+1. Click the **Authorize** button (the padlock icon) at the top right of this page or next to any protected endpoint.
+2. Enter your valid Admin API Key into the `X-API-Key` value box.
+3. Click **Authorize** to lock it in. All subsequent requests to Admin endpoints will now automatically include your key.
+    """,
+    version="1.0.0"
 )
 
 app.add_middleware(
@@ -22,7 +38,18 @@ app.add_middleware(
     allow_headers=["*"], # Allows all headers 
 )
 
-@app.get("/", tags = ["Root"])
+@app.get("/", tags = ["Root"], summary="API Health Check & Welcome",
+    description="Returns a welcome message and confirms the API is successfully running.",
+    responses={
+        200: {
+            "description": "Successful Connection",
+            "content": {
+                "application/json": {
+                    "example": {"message": "Welcome to the Reel Returns API! Go to /docs to see the documentation."}
+                }
+            }
+        }
+    })
 def read_root():
     return {"message": "Welcome to the Reel Returns API! Go to /docs to see the documentation."}
     
@@ -252,7 +279,26 @@ def success_predictor(proposed_budget: float, genre: str, db: Session = Depends(
     }
 
 # SECURITY endpoint - Verify API key for admin access to protected endpoints
-@app.get("/auth/verify", tags=["Authentication"])
+@app.get("/auth/verify", tags=["Authentication"], summary="Verify Admin API Key",
+    description="Tests the validity of the provided API key. Use this endpoint to confirm your authentication status before attempting to access protected Admin CRUD routes.",
+    responses={
+        200: {
+            "description": "Successfully Authenticated",
+            "content": {
+                "application/json": {
+                    "example": {"status": "authenticated", "message": "API Key is valid"}
+                }
+            }
+        },
+        403: {
+            "description": "Invalid or Missing API Key",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Could not validate credentials"}
+                }
+            }
+        }
+    })
 def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
     return {"status": "authenticated", "message": "API Key is valid"}
 
