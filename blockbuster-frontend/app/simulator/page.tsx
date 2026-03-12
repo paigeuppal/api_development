@@ -65,7 +65,7 @@ export default function SimulatorPage() {
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || "Failed to run simulation.");
+        throw new Error(data.detail || data.error || "Failed to run simulation.");
       }
 
       setResult(data);
