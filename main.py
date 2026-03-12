@@ -10,8 +10,8 @@ from security import verify_api_key
 
 # FastAPI app instance
 app = FastAPI(
-    title="Adjusted Blockbuster API",
-    description="An API that calculates what the box office revenue of a movie would be in today's ecconomy"
+    title="Reel Returns API",
+    description="An API that calculates what the box office revenue of a movie would be in today's economy"
 )
 
 app.add_middleware(
@@ -22,65 +22,12 @@ app.add_middleware(
     allow_headers=["*"], # Allows all headers 
 )
 
-@app.get("/")
+@app.get("/", tags = ["Root"])
 def read_root():
-    return {"message": "Welcome to the Adjusted Blockbuster API! Go to /docs to see the documentation."}
-
-# # READ Endpoint to return the adjusted budget, revenue, and ROI for a given movie ID
-# @app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse)
-# def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
-    
-#     # search for movie by ID in database, if not found return 404 error
-#     movie = db.query(Movie).filter(Movie.id == movie_id).first()
-#     if not movie:
-#         raise HTTPException(status_code=404, detail="Movie not found in the database")
-
-#     # search for historical inflation rate (CPI) for the year the movie came out
-#     historical_cpi = db.query(InflationRate).filter(InflationRate.year == movie.release_year).first()
-    
-#     # search for the most recent , tags = ["Analytics"]inflation rate in database 
-#     modern_cpi = db.query(InflationRate).order_by(InflationRate.year.desc()).first()
-    
-#     # If we have the specific year and a modern anchor, calculate adjustment.
-#     # If the year is missing (like 2024+), default the multiplier to 1.0.
-#     if historical_cpi and modern_cpi:
-#         economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
-#     else:
-#         economic_adjustment = 1.0
-
-#     # Adjustment calculation: 
-#     # today's cost = original cost * (CPI today / CPI in year of release)
-#     economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
-#     adj_budget = movie.budget * economic_adjustment
-#     adj_revenue = movie.revenue * economic_adjustment
-    
-#     # calculate ROI %: ((Revenue - Budget) / Budget) * 100
-#     roi = ((adj_revenue - adj_budget) / adj_budget) * 100 if adj_budget > 0 else 0
-    
-#     # clean up the genres field so it's easier to read - extract just the genre names from the original stringified list of dictionaries
-#     formatted_genres = None
-#     if movie.genres:
-#         try:
-#             genre_list = json.loads(movie.genres)
-#             formatted_genres = ", ".join([g["name"] for g in genre_list])
-#         except json.JSONDecodeError:
-#             formatted_genres = movie.genres
-
-#     # Package response into schema previously defined & return as JSON
-#     return {
-#         "movie_id": movie.id,
-#         "title": movie.title,
-#         "release_year": movie.release_year,
-#         "original_budget": movie.budget,
-#         "original_revenue": movie.revenue,
-#         "adjusted_budget": round(adj_budget, 2),
-#         "adjusted_revenue": round(adj_revenue, 2),
-#         "roi_percentage": round(roi, 2),
-#         "genres": formatted_genres  # <--- Use the clean variable here!
-#     }
+    return {"message": "Welcome to the Reel Returns API! Go to /docs to see the documentation."}
     
 # READ Endpoint to return the adjusted budget, revenue, and ROI for a given movie ID
-@app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse)
+@app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse, tags=["Movies"])
 def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     
     # search for movie by ID in database, if not found return 404 error
@@ -131,7 +78,7 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     }
   
 # SEARCH endpoint with pagination
-@app.get("/movies/search/")
+@app.get("/movies/search/", tags=["Movies"])
 def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     
     # case-insensitive search for movies with titles that contain the search term, returns a list of matches
@@ -249,9 +196,13 @@ def success_predictor(proposed_budget: float, genre: str, db: Session = Depends(
         }
     }
 
+# SECURITY endpoint - Verify API key for admin access to protected endpoints
+@app.get("/auth/verify", tags=["Authentication"])
+def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
+    return {"status": "authenticated", "message": "API Key is valid"}
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
-@app.post("/movies/")
+@app.post("/movies/", tags=["Movie Management (Admin)"])
 def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # checking for film with the same title (case-insensitive) and release year to prevent duplicates
@@ -281,7 +232,7 @@ def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_ke
     return {"message": f"Added '{new_movie.title}' to the database successfully.", "movie_id": new_movie.id}
 
 # UPDATE endpoint - Amend existing movie data by ID, overwrites all of the fields 
-@app.put("/movies/{movie_id}")
+@app.put("/movies/{movie_id}", tags=["Movie Management (Admin)"])
 def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
@@ -301,7 +252,7 @@ def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = 
     return {"message": f"Successfully updated movie ID {movie_id}", "title": db_movie.title}
     
 # PATCH - Partially updating fields - update fields without overwriting entire record 
-@app.patch("/movies/{movie_id}")
+@app.patch("/movies/{movie_id}", tags=["Movie Management (Admin)"])
 def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # check if movie exists in database, if not return 404 error
@@ -381,7 +332,7 @@ def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     return {"leaderboard_size": top, "top_movies": leaderboard[:top]}
 
 # DELETE endpoint - Remove a movie from the database
-@app.delete("/movies/{movie_id}")
+@app.delete("/movies/{movie_id}", tags = ["Movie Management (Admin)"])
 def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
@@ -392,14 +343,9 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = De
     db.commit()
     return {"message": f"Successfully deleted '{db_movie.title}' from the database."}
 
-# SECURITY endpoint - Verify API key for admin access to protected endpoints
-@app.get("/auth/verify", tags=["Security"])
-def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
-    return {"status": "authenticated", "message": "API Key is valid"}
-
 
 # CREATE endpoint - Fails if year already exists
-@app.post("/inflation/", tags=["Admin"])
+@app.post("/inflation/", tags=["Inflation Management (Admin)"])
 def create_inflation_data(
     data: InflationCreate, 
     db: Session = Depends(get_db), 
@@ -421,7 +367,7 @@ def create_inflation_data(
 
 
 # UPDATE endpoint - Fails if year doesn't exist
-@app.put("/inflation/{year}", tags=["Admin"])
+@app.put("/inflation/{year}", tags=["Inflation Management (Admin)"])
 def update_inflation_data(
     year: int, 
     cpi: float, # We just need the new CPI value
