@@ -292,3 +292,71 @@ def test_success_predictor_no_data():
     assert response.status_code == 200
     assert "error" in response.json()
     assert "Not enough historical data" in response.json()["error"]
+    
+# Test 15: CREATE Inflation happy path - admin adds new CPI data successfully
+def test_create_inflation_success():
+    response = client.post(
+        "/analytics/inflation/",
+        headers={"X-API-Key": "YouShallNotPass"},
+        json={
+            "year": 2025,
+            "cpi": 320.5
+        }
+    )
+    
+    assert response.status_code == 200
+    assert response.json()["message"] == "Added new inflation data for 2025"
+
+
+# Test 16: CREATE Inflation erroneous path - admin tries to add a year that already exists
+def test_create_inflation_duplicate():
+    # 1. Create the initial record for 2026
+    client.post(
+        "/analytics/inflation/",
+        headers={"X-API-Key": "YouShallNotPass"},
+        json={"year": 2026, "cpi": 325.0}
+    )
+    
+    # 2. Attempt to create the exact same year again with a different CPI
+    response = client.post(
+        "/analytics/inflation/",
+        headers={"X-API-Key": "YouShallNotPass"},
+        json={"year": 2026, "cpi": 330.0}
+    )
+    
+    # Prove the API blocked the duplicate creation
+    assert response.status_code == 400
+    assert "already exists" in response.json()["detail"]
+
+
+# Test 17: UPDATE Inflation happy path - admin updates existing CPI data successfully
+def test_update_inflation_success():
+    # 1. First, ensure the year 2027 exists
+    client.post(
+        "/analytics/inflation/",
+        headers={"X-API-Key": "YouShallNotPass"},
+        json={"year": 2027, "cpi": 330.0}
+    )
+    
+    # 2. Now, update it using the PUT endpoint
+    # Note: CPI is passed as a query parameter based on your FastAPI route setup
+    response = client.put(
+        "/analytics/inflation/2027?cpi=335.5",
+        headers={"X-API-Key": "YouShallNotPass"}
+    )
+    
+    assert response.status_code == 200
+    assert response.json()["message"] == "Updated CPI for 2027 to 335.5"
+
+
+# Test 18: UPDATE Inflation erroneous path - admin tries to update a year that doesn't exist
+def test_update_inflation_not_found():
+    # Try to update a year we haven't created in the test database (like 2050)
+    response = client.put(
+        "/analytics/inflation/2050?cpi=400.0",
+        headers={"X-API-Key": "YouShallNotPass"}
+    )
+    
+    # Prove the API correctly returns a Not Found error
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]

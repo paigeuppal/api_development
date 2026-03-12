@@ -26,6 +26,59 @@ app.add_middleware(
 def read_root():
     return {"message": "Welcome to the Adjusted Blockbuster API! Go to /docs to see the documentation."}
 
+# # READ Endpoint to return the adjusted budget, revenue, and ROI for a given movie ID
+# @app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse)
+# def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
+    
+#     # search for movie by ID in database, if not found return 404 error
+#     movie = db.query(Movie).filter(Movie.id == movie_id).first()
+#     if not movie:
+#         raise HTTPException(status_code=404, detail="Movie not found in the database")
+
+#     # search for historical inflation rate (CPI) for the year the movie came out
+#     historical_cpi = db.query(InflationRate).filter(InflationRate.year == movie.release_year).first()
+    
+#     # search for the most recent , tags = ["Analytics"]inflation rate in database 
+#     modern_cpi = db.query(InflationRate).order_by(InflationRate.year.desc()).first()
+    
+#     # If we have the specific year and a modern anchor, calculate adjustment.
+#     # If the year is missing (like 2024+), default the multiplier to 1.0.
+#     if historical_cpi and modern_cpi:
+#         economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
+#     else:
+#         economic_adjustment = 1.0
+
+#     # Adjustment calculation: 
+#     # today's cost = original cost * (CPI today / CPI in year of release)
+#     economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
+#     adj_budget = movie.budget * economic_adjustment
+#     adj_revenue = movie.revenue * economic_adjustment
+    
+#     # calculate ROI %: ((Revenue - Budget) / Budget) * 100
+#     roi = ((adj_revenue - adj_budget) / adj_budget) * 100 if adj_budget > 0 else 0
+    
+#     # clean up the genres field so it's easier to read - extract just the genre names from the original stringified list of dictionaries
+#     formatted_genres = None
+#     if movie.genres:
+#         try:
+#             genre_list = json.loads(movie.genres)
+#             formatted_genres = ", ".join([g["name"] for g in genre_list])
+#         except json.JSONDecodeError:
+#             formatted_genres = movie.genres
+
+#     # Package response into schema previously defined & return as JSON
+#     return {
+#         "movie_id": movie.id,
+#         "title": movie.title,
+#         "release_year": movie.release_year,
+#         "original_budget": movie.budget,
+#         "original_revenue": movie.revenue,
+#         "adjusted_budget": round(adj_budget, 2),
+#         "adjusted_revenue": round(adj_revenue, 2),
+#         "roi_percentage": round(roi, 2),
+#         "genres": formatted_genres  # <--- Use the clean variable here!
+#     }
+    
 # READ Endpoint to return the adjusted budget, revenue, and ROI for a given movie ID
 @app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse)
 def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
@@ -38,7 +91,7 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     # search for historical inflation rate (CPI) for the year the movie came out
     historical_cpi = db.query(InflationRate).filter(InflationRate.year == movie.release_year).first()
     
-    # search for the most recent , tags = ["Analytics"]inflation rate in database 
+    # search for the most recent inflation rate in database 
     modern_cpi = db.query(InflationRate).order_by(InflationRate.year.desc()).first()
     
     # If we have the specific year and a modern anchor, calculate adjustment.
@@ -48,9 +101,7 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     else:
         economic_adjustment = 1.0
 
-    # Adjustment calculation: 
-    # today's cost = original cost * (CPI today / CPI in year of release)
-    economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
+    # Apply the calculation to the budget and revenue
     adj_budget = movie.budget * economic_adjustment
     adj_revenue = movie.revenue * economic_adjustment
     
@@ -76,10 +127,9 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         "adjusted_budget": round(adj_budget, 2),
         "adjusted_revenue": round(adj_revenue, 2),
         "roi_percentage": round(roi, 2),
-        "genres": formatted_genres  # <--- Use the clean variable here!
+        "genres": formatted_genres 
     }
-    
-    
+  
 # SEARCH endpoint with pagination
 @app.get("/movies/search/")
 def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
@@ -347,25 +397,68 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = De
 def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
     return {"status": "authenticated", "message": "API Key is valid"}
 
-# CREATE inflation data endpoint - Add new inflation data to the database (Admin only)
+# # CREATE inflation data endpoint - Add new inflation data to the database (Admin only)
+# @app.post("/analytics/inflation/", tags=["Admin"])
+# def add_inflation_data(
+#     data: InflationCreate, 
+#     db: Session = Depends(get_db), 
+#     api_key: str = Depends(verify_api_key)
+# ):
+#     # Access the data using data.year and data.cpi
+#     existing = db.query(InflationRate).filter(InflationRate.year == data.year).first()
+    
+#     if existing:
+#         existing.cpi = data.cpi
+#         db.commit()
+#         return {"message": f"Updated CPI for {data.year}"}
+    
+#     new_rate = InflationRate(year=data.year, cpi=data.cpi)
+#     db.add(new_rate)
+#     db.commit()
+#     return {"message": f"Added new inflation data for {data.year}"}
+
+# CREATE endpoint - Fails if year already exists
 @app.post("/analytics/inflation/", tags=["Admin"])
-def add_inflation_data(
+def create_inflation_data(
     data: InflationCreate, 
     db: Session = Depends(get_db), 
     api_key: str = Depends(verify_api_key)
 ):
-    # Access the data using data.year and data.cpi
+    # Check if it already exists
     existing = db.query(InflationRate).filter(InflationRate.year == data.year).first()
-    
     if existing:
-        existing.cpi = data.cpi
-        db.commit()
-        return {"message": f"Updated CPI for {data.year}"}
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Inflation data for {data.year} already exists. Please use the PUT endpoint to update it."
+        )
     
+    # Create new
     new_rate = InflationRate(year=data.year, cpi=data.cpi)
     db.add(new_rate)
     db.commit()
     return {"message": f"Added new inflation data for {data.year}"}
+
+
+# UPDATE endpoint - Fails if year doesn't exist
+@app.put("/analytics/inflation/{year}", tags=["Admin"])
+def update_inflation_data(
+    year: int, 
+    cpi: float, # We just need the new CPI value
+    db: Session = Depends(get_db), 
+    api_key: str = Depends(verify_api_key)
+):
+    # Check if it exists
+    existing = db.query(InflationRate).filter(InflationRate.year == year).first()
+    if not existing:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Inflation data for {year} not found. Please use the POST endpoint to create it."
+        )
+    
+    # Update existing
+    existing.cpi = cpi
+    db.commit()
+    return {"message": f"Updated CPI for {year} to {cpi}"}
 
 # create and mount the MCP server directly to FastAPI app
 mcp = FastApiMCP(app)
