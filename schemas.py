@@ -29,6 +29,21 @@ class MovieCreateUpdate(BaseModel):
     budget: float = Field(..., ge=0)
     revenue: float = Field(..., ge=0)
     genres: Optional[str] = None
+    
+    # Swagger JSON examples
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "title": "Avatar: The Way of Water",
+                    "release_year": 2022,
+                    "budget": 350000000.0,
+                    "revenue": 2320000000.0,
+                    "genres": "Action, Science Fiction"
+                }
+            ]
+        }
+    }
 
 # Schema for partial updates (PATCH)
 class MovieUpdate(BaseModel):
@@ -42,3 +57,14 @@ class MovieUpdate(BaseModel):
 class InflationCreate(BaseModel):
     year: int
     cpi: float
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "year": 2024,
+                    "cpi": 311.5
+                }
+            ]
+        }
+    }

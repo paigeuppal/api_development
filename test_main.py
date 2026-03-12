@@ -49,7 +49,7 @@ def test_read_root():
     assert response.status_code == 200 
     
     # prove the API returned the exact right message
-    assert response.json() == {"message": "Welcome to the Adjusted Blockbuster API! Go to /docs to see the documentation."}
+    assert response.json() == {"message": "Welcome to the Reel Returns API! Go to /docs to see the documentation."}
     
 # Test 2: CREATE happy path - user adds a new movie successfully
 def test_create_movie():
@@ -283,15 +283,14 @@ def test_success_predictor_valid():
     assert data["risk_assessment"]["success_rate_percentage"] == 50.0
     assert data["risk_assessment"]["rating"] == "Caution"
 
-
 # Test 14: Predictor handles empty data safely
 def test_success_predictor_no_data():
-    # Query a genre and budget combination that definitely doesn't exist in mock DB
-    response = client.get("/analytics/success-predictor/?proposed_budget=50000000&genre=Musical")
-    
-    assert response.status_code == 200
-    assert "error" in response.json()
-    assert "Not enough historical data" in response.json()["error"]
+        # Query a genre and budget combination that definitely doesn't exist in mock DB
+        response = client.get("/analytics/success-predictor/?proposed_budget=50000000&genre=Musical")
+        
+        assert response.status_code == 400
+        data = response.json()
+        assert "Not enough historical data" in data["detail"]
     
 # Test 15: CREATE Inflation happy path - admin adds new CPI data successfully
 def test_create_inflation_success():

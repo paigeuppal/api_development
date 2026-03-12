@@ -27,7 +27,28 @@ def read_root():
     return {"message": "Welcome to the Reel Returns API! Go to /docs to see the documentation."}
     
 # READ Endpoint to return the adjusted budget, revenue, and ROI for a given movie ID
-@app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse, tags=["Movies"])
+@app.get("/movies/adjusted/{movie_id}", response_model=MovieAdjustedResponse, tags=["Movies"], summary="Get inflation-adjusted financials for a specific movie",
+    description="Retrieves a movie by ID, fetches historical and modern CPI data, and calculates the inflation-adjusted budget, revenue, and Return on Investment (ROI). Defaults to a 1.0 multiplier if future inflation data is missing.",
+    responses={
+        200: {
+            "description": "Successful Response",
+            "content": {"application/json": {"example": {
+                "movie_id": 1, "title": "Titanic", "release_year": 1997, 
+                "original_budget": 200000000.0, "original_revenue": 2187463944.0, 
+                "adjusted_budget": 380000000.0, "adjusted_revenue": 4156000000.0, 
+                "roi_percentage": 993.73, "genres": "Drama, Romance"
+            }}}
+        },
+        404: {
+            "description": "Movie not found",
+            "content": {"application/json": {"example": {"detail": "Movie not found in the database"}}}
+        },
+        422: {
+            "description": "Validation Error (e.g., providing a string instead of an integer for movie_id)",
+            "content": {"application/json": {"example": {"detail": [{"loc": ["path", "movie_id"], "msg": "value is not a valid integer", "type": "type_error.integer"}]}}}
+        }
+    }
+)
 def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     
     # search for movie by ID in database, if not found return 404 error
@@ -78,7 +99,23 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     }
   
 # SEARCH endpoint with pagination
-@app.get("/movies/search/", tags=["Movies"])
+@app.get("/movies/search/", tags=["Movies"], summary="Search for movies by title",
+    description="Performs a case-insensitive search for movies matching the title query. Supports pagination via skip and limit parameters.",
+    responses={
+        200: {
+            "description": "Successful Search",
+            "content": {"application/json": {"example": {
+                "matches_returned": 1, "skip": 0, "limit": 10,
+                "results": [{"movie_id": 42, "title": "Avatar", "release_year": 2009, "genres": "Action, Science Fiction"}]
+            }}}
+        },
+        404: {
+            "description": "No matches found",
+            "content": {"application/json": {"example": {"detail": "No movies found matching 'query'."}}}
+        },
+        422: {"description": "Validation Error"}
+    }
+)
 def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     
     # case-insensitive search for movies with titles that contain the search term, returns a list of matches
@@ -116,7 +153,24 @@ def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depe
     }
 
 # ANALYTICS endpoint - Predictive analytics engine that calculates historical success rates, genre averages, and top comparable movies (Comps).
-@app.get("/analytics/success-predictor/", tags = ["Analytics"])
+@app.get("/analytics/success-predictor/", tags = ["Analytics"],
+    summary="Predict success based on proposed budget and genre",
+    description="Calculates historical success rates, genre averages, and top comparable movies by defining a cohort bracket (+/- 20% of the proposed budget).",
+    responses={
+        200: {
+            "description": "Successful Analysis",
+            "content": {"application/json": {"example": {
+                "predictor_parameters": {"proposed_budget": 100000000.0, "genre": "Action"},
+                "risk_assessment": {"cohort_size": 25, "success_rate_percentage": 72.5, "rating": "Strong Green Light", "colour_code": "green", "analysis": "Low Risk."},
+                "genre_insights": {"total_movies_analysed": 150, "average_historical_roi_percentage": 115.2, "closest_budget_comps": []}
+            }}}
+        },
+        400: {
+            "description": "Not Enough Data",
+            "content": {"application/json": {"example": {"detail": "Not enough historical data for the 'Unknown' genre in this budget bracket."}}}
+        },
+        422: {"description": "Validation Error (e.g., invalid budget format)"}
+    })
 def success_predictor(proposed_budget: float, genre: str, db: Session = Depends(get_db)):
     """
     Calculates historical success rates, genre averages, and top comparable movies (Comps).
@@ -141,9 +195,10 @@ def success_predictor(proposed_budget: float, genre: str, db: Session = Depends(
     ).all()
 
     if not cohort_movies or not all_genre_movies:
-        return {
-            "error": f"Not enough historical data for the '{genre}' genre in this budget bracket."
-        }
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Not enough historical data for the '{genre}' genre in this budget bracket."
+        )
 
     # Calculate a success rate for the cohort: % of movies that made more money than they cost (profitability)
     total_cohort = len(cohort_movies)
@@ -202,7 +257,14 @@ def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
     return {"status": "authenticated", "message": "API Key is valid"}
 
 # CREATE endpoint - ability to add a new film to the database, with duplication validation 
-@app.post("/movies/", tags=["Movie Management (Admin)"])
+@app.post("/movies/", tags=["Movie Management (Admin)"], summary="Create a new movie record",
+    description="Adds a new movie to the database. Requires Admin API Key. Validates against duplicate titles released in the same year.",
+    responses={
+        200: {"description": "Successfully Created", "content": {"application/json": {"example": {"message": "Added 'New Movie' to the database successfully.", "movie_id": 99}}}},
+        400: {"description": "Duplicate Movie Error", "content": {"application/json": {"example": {"detail": "Error: 'Movie Title' (2024) already exists in the database with ID 5."}}}},
+        403: {"description": "Not Authenticated"},
+        422: {"description": "Validation Error (e.g. negative budget provided)"}
+    })
 def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # checking for film with the same title (case-insensitive) and release year to prevent duplicates
@@ -232,7 +294,14 @@ def create_movie(movie: MovieCreateUpdate, db: Session = Depends(get_db), api_ke
     return {"message": f"Added '{new_movie.title}' to the database successfully.", "movie_id": new_movie.id}
 
 # UPDATE endpoint - Amend existing movie data by ID, overwrites all of the fields 
-@app.put("/movies/{movie_id}", tags=["Movie Management (Admin)"])
+@app.put("/movies/{movie_id}", tags=["Movie Management (Admin)"], summary="Update an entire movie record",
+    description="Overwrites an existing movie record. Requires Admin API Key.",
+    responses={
+        200: {"description": "Successfully Updated", "content": {"application/json": {"example": {"message": "Successfully updated movie ID 99", "title": "Updated Title"}}}},
+        403: {"description": "Not Authenticated"},
+        404: {"description": "Movie Not Found"},
+        422: {"description": "Validation Error"}
+    })
 def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
@@ -252,7 +321,14 @@ def update_movie(movie_id: int, updated_movie: MovieCreateUpdate, db: Session = 
     return {"message": f"Successfully updated movie ID {movie_id}", "title": db_movie.title}
     
 # PATCH - Partially updating fields - update fields without overwriting entire record 
-@app.patch("/movies/{movie_id}", tags=["Movie Management (Admin)"])
+@app.patch("/movies/{movie_id}", tags=["Movie Management (Admin)"], summary="Partially update a movie record",
+    description="Updates only the fields provided in the request payload without overwriting the entire record. Requires Admin API Key.",
+    responses={
+        200: {"description": "Successfully Patched", "content": {"application/json": {"example": {"message": "Successfully updated 'Title'!", "current_movie_state": {}}}}},
+        403: {"description": "Not Authenticated"},
+        404: {"description": "Movie Not Found"},
+        422: {"description": "Validation Error"}
+    })
 def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     
     # check if movie exists in database, if not return 404 error
@@ -286,7 +362,18 @@ def update_movie_detail(movie_id: int, updated_data: MovieUpdate, db: Session = 
     }
 
 # Analytics endpoint - calculates the top n most profitable movies adjusted for inflation
-@app.get("/analytics/leaderboard", tags = ["Analytics"])
+@app.get("/analytics/leaderboard", tags = ["Analytics"], summary="Get profitability leaderboard",
+    description="Calculates and returns the most profitable movies of all time, adjusted for inflation. Sorted by ROI percentage in descending order.",
+    responses={
+        200: {
+            "description": "Successful Leaderboard Generation",
+            "content": {"application/json": {"example": {
+                "leaderboard_size": 10, "top_movies": [{"movie_id": 1, "title": "Titanic", "release_year": 1997, "roi_percentage": 993.73}]
+            }}}
+        },
+        400: {"description": "Database Error", "content": {"application/json": {"example": {"detail": "Not enough data to calculate a leaderboard."}}}},
+        422: {"description": "Validation Error"}
+    })
 def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     
     # fetch all movies and all inflation rates at once
@@ -332,7 +419,14 @@ def get_profitability_leaderboard(top: int = 10, db: Session = Depends(get_db)):
     return {"leaderboard_size": top, "top_movies": leaderboard[:top]}
 
 # DELETE endpoint - Remove a movie from the database
-@app.delete("/movies/{movie_id}", tags = ["Movie Management (Admin)"])
+@app.delete("/movies/{movie_id}", tags = ["Movie Management (Admin)"], summary="Delete a movie",
+    description="Permanently removes a movie from the database. Requires Admin API Key.",
+    responses={
+        200: {"description": "Successfully Deleted", "content": {"application/json": {"example": {"message": "Successfully deleted 'Movie Title' from the database."}}}},
+        403: {"description": "Not Authenticated"},
+        404: {"description": "Movie Not Found"},
+        422: {"description": "Validation Error"}
+    })
 def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = Depends(verify_api_key)):
     db_movie = db.query(Movie).filter(Movie.id == movie_id).first()
     
@@ -345,7 +439,14 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = De
 
 
 # CREATE endpoint - Fails if year already exists
-@app.post("/inflation/", tags=["Inflation Management (Admin)"])
+@app.post("/inflation/", tags=["Inflation Management (Admin)"], summary="Add new inflation data",
+    description="Creates a new CPI record for a specific year. Fails if the year already exists. Requires Admin API Key.",
+    responses={
+        200: {"description": "Successfully Created", "content": {"application/json": {"example": {"message": "Added new inflation data for 2024"}}}},
+        400: {"description": "Data Already Exists", "content": {"application/json": {"example": {"detail": "Inflation data for 2024 already exists. Please use the PUT endpoint to update it."}}}},
+        403: {"description": "Not Authenticated"},
+        422: {"description": "Validation Error"}
+    })
 def create_inflation_data(
     data: InflationCreate, 
     db: Session = Depends(get_db), 
@@ -367,10 +468,17 @@ def create_inflation_data(
 
 
 # UPDATE endpoint - Fails if year doesn't exist
-@app.put("/inflation/{year}", tags=["Inflation Management (Admin)"])
+@app.put("/inflation/{year}", tags=["Inflation Management (Admin)"], summary="Update existing inflation data",
+    description="Updates the CPI value for an existing year. Fails if the year does not exist in the database. Requires Admin API Key.",
+    responses={
+        200: {"description": "Successfully Updated", "content": {"application/json": {"example": {"message": "Updated CPI for 2024 to 311.5"}}}},
+        403: {"description": "Not Authenticated"},
+        404: {"description": "Data Not Found", "content": {"application/json": {"example": {"detail": "Inflation data for 2024 not found. Please use the POST endpoint to create it."}}}},
+        422: {"description": "Validation Error"}
+    })
 def update_inflation_data(
     year: int, 
-    cpi: float, # We just need the new CPI value
+    cpi: float, 
     db: Session = Depends(get_db), 
     api_key: str = Depends(verify_api_key)
 ):
