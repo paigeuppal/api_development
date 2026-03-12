@@ -37,3 +37,8 @@ class MovieUpdate(BaseModel):
     budget: Optional[float] = Field(None, ge=0)
     revenue: Optional[float] = Field(None, ge=0)
     genres: Optional[str] = None
+    
+# Schema for Inflation Rate data
+class InflationCreate(BaseModel):
+    year: int
+    cpi: float

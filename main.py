@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 
 from database import get_db, Base, Movie, InflationRate
-from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate
+from schemas import MovieAdjustedResponse, MovieCreateUpdate, MovieUpdate, InflationCreate
 from security import verify_api_key
 
 # FastAPI app instance
@@ -40,10 +40,13 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
     
     # search for the most recent , tags = ["Analytics"]inflation rate in database 
     modern_cpi = db.query(InflationRate).order_by(InflationRate.year.desc()).first()
-
-    # check for inflation data, don't calculate if missing 
-    if not historical_cpi or not modern_cpi:
-        raise HTTPException(status_code=400, detail="Inflation data is missing for this calculation")
+    
+    # If we have the specific year and a modern anchor, calculate adjustment.
+    # If the year is missing (like 2024+), default the multiplier to 1.0.
+    if historical_cpi and modern_cpi:
+        economic_adjustment = modern_cpi.cpi / historical_cpi.cpi
+    else:
+        economic_adjustment = 1.0
 
     # Adjustment calculation: 
     # today's cost = original cost * (CPI today / CPI in year of release)
@@ -338,6 +341,31 @@ def delete_movie(movie_id: int, db: Session = Depends(get_db), api_key: str = De
     db.delete(db_movie)
     db.commit()
     return {"message": f"Successfully deleted '{db_movie.title}' from the database."}
+
+# SECURITY endpoint - Verify API key for admin access to protected endpoints
+@app.get("/auth/verify", tags=["Security"])
+def verify_key(_api_key: str = Depends(verify_api_key)): # Added underscore
+    return {"status": "authenticated", "message": "API Key is valid"}
+
+# CREATE inflation data endpoint - Add new inflation data to the database (Admin only)
+@app.post("/analytics/inflation/", tags=["Admin"])
+def add_inflation_data(
+    data: InflationCreate, 
+    db: Session = Depends(get_db), 
+    api_key: str = Depends(verify_api_key)
+):
+    # Access the data using data.year and data.cpi
+    existing = db.query(InflationRate).filter(InflationRate.year == data.year).first()
+    
+    if existing:
+        existing.cpi = data.cpi
+        db.commit()
+        return {"message": f"Updated CPI for {data.year}"}
+    
+    new_rate = InflationRate(year=data.year, cpi=data.cpi)
+    db.add(new_rate)
+    db.commit()
+    return {"message": f"Added new inflation data for {data.year}"}
 
 # create and mount the MCP server directly to FastAPI app
 mcp = FastApiMCP(app)
