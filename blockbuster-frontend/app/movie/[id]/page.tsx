@@ -71,27 +71,57 @@ export default async function MoviePage({ params }: { params: Promise<{ id: stri
           <h2 className="text-xl font-bold text-[#012f3d] mb-6 border-b border-[#012f3d]/10 pb-2">Inflation-Adjusted Financials</h2>
           
           <div className="grid md:grid-cols-2 gap-8">
-            {/* Box Office Stats */}
+            {/* Box Office Stats (Comparison) */}
             <div className="space-y-6">
+              
+              {/* Budget Comparison Card */}
               <div className="bg-white/55 p-4 rounded-lg border border-[#012f3d]/10">
-                <p className="text-sm font-semibold text-[#012f3d]/60 uppercase tracking-wider mb-1">Adjusted Budget</p>
-                <p className="text-2xl font-bold text-[#012f3d]">
-                  ${movie.adjusted_budget?.toLocaleString() || "N/A"}
-                </p>
+                <h3 className="text-sm font-bold text-[#012f3d]/60 uppercase tracking-wider mb-3 border-b border-[#012f3d]/10 pb-1">
+                  Budget
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#012f3d]/50 uppercase">Original ({movie.release_year})</p>
+                    <p className="text-lg font-bold text-[#012f3d]/70 leading-tight [overflow-wrap:anywhere]">
+                      ${movie.original_budget?.toLocaleString() || "N/A"}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#012f3d] uppercase">Adjusted (Today)</p>
+                    <p className="text-xl font-bold text-[#012f3d] leading-tight [overflow-wrap:anywhere]">
+                      ${movie.adjusted_budget?.toLocaleString() || "N/A"}
+                    </p>
+                  </div>
+                </div>
               </div>
               
+              {/* Revenue Comparison Card */}
               <div className="bg-white/55 p-4 rounded-lg border border-[#012f3d]/10">
-                <p className="text-sm font-semibold text-[#012f3d]/60 uppercase tracking-wider mb-1">Adjusted Revenue</p>
-                <p className="text-2xl font-bold text-emerald-700">
-                  ${movie.adjusted_revenue?.toLocaleString() || "N/A"}
-                </p>
+                <h3 className="text-sm font-bold text-[#012f3d]/60 uppercase tracking-wider mb-3 border-b border-[#012f3d]/10 pb-1">
+                  Box Office Revenue
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#012f3d]/50 uppercase">Original ({movie.release_year})</p>
+                    <p className="text-lg font-bold text-[#012f3d]/70 leading-tight [overflow-wrap:anywhere]">
+                      ${movie.original_revenue?.toLocaleString() || "N/A"}
+                    </p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-emerald-700 uppercase">Adjusted (Today)</p>
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-700 leading-tight [overflow-wrap:anywhere]">
+                      ${movie.adjusted_revenue?.toLocaleString() || "N/A"}
+                    </p>
+                  </div>
+                </div>
               </div>
+
             </div>
 
             {/* ROI Highlight */}
             <div className="flex flex-col justify-center items-center bg-[#012f3d] p-6 rounded-xl border border-[#012f3d]/20">
               <p className="text-sm font-bold text-[#fbe0d9]/80 uppercase tracking-widest mb-2">Return on Investment</p>
-              <p className="text-5xl font-extrabold text-[#e57a5e]">
+              <p className="text-4xl sm:text-5xl font-extrabold text-[#e57a5e] text-center leading-none [overflow-wrap:anywhere]">
                 {movie.roi_percentage?.toLocaleString()}%
               </p>
               <p className="text-xs text-[#fbe0d9]/70 mt-4 text-center">
