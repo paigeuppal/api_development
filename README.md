@@ -11,6 +11,7 @@ The Reel Returns API bridges the gap between historical cinema and modern econom
 
 ## Live Deployment
 * **Backend API (Render):** https://adjusted-blockbuster-api.onrender.com
+* **Frontend (Vercel):** https://reel-returns-api.vercel.app/
 
 ## API Documentation
 The complete API documentation (including all endpoints, expected JSON responses, and error codes) can be found in the attached PDF:
