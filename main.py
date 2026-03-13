@@ -33,7 +33,7 @@ To authenticate:
 #  Define exactly who is allowed to talk to API
 origins = [
     "http://localhost:3000", 
-    "https://reel-returns-api.vercel.app/"
+    "https://reel-returns-api.vercel.app"
 ]
 
 app.add_middleware(
