@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Response
 from fastapi_mcp import FastApiMCP
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,9 +30,15 @@ To authenticate:
     version="1.0.0"
 )
 
+#  Define exactly who is allowed to talk to API
+origins = [
+    "http://localhost:3000", 
+    "https://reel-returns-api.vercel.app/"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allows any frontend to access the API 
+    allow_origins=origins, 
     allow_credentials=True,
     allow_methods=["*"], # Allows all HTTP methods
     allow_headers=["*"], # Allows all headers 
@@ -143,7 +149,10 @@ def get_adjusted_movie(movie_id: int, db: Session = Depends(get_db)):
         422: {"description": "Validation Error"}
     }
 )
-def search_movies(title: str, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+def search_movies(title: str, response: Response, skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    
+     # Tells browser to cache the search results for 1 hour
+    response.headers["Cache-Control"] = "public, max-age=3600"
     
     # case-insensitive search for movies with titles that contain the search term, returns a list of matches
     # Use .offset(skip) and .limit(limit) to slice the database results

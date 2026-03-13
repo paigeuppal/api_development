@@ -43,7 +43,7 @@ export default async function MoviePage({ params }: { params: Promise<{ id: stri
   // If no errors, display movie details in clean layout 
   return (
     <main className="min-h-screen p-8 bg-[#e57a5e] text-[#fbe0d9]">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         
         <div className="mb-6">
           <Link href="/" className="text-[#012f3d] hover:text-[#fbe0d9] font-semibold transition-colors">
