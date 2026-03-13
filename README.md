@@ -37,7 +37,13 @@ To run this project locally, you will need to start both the Python backend and 
    ```bash
    pip install -r requirements.txt
    ```
-4. Start the FastAPI server:
+#### Set up the environment variables and Database:
+1. Create a .env file in the root directory and add the API Key (provided in the technical report).
+2. Run the database initialisation script to build the SQLite database from the raw datasets:
+   ```bash
+   python build.py
+   ```
+3. Start the FastAPI server:
    ```bash
    fastapi dev main.py
    ```
