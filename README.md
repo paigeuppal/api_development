@@ -57,7 +57,7 @@ To run this project locally, you will need to start both the Python backend and 
    ```
 3. Create a `.env.local` file in the frontend directory and add the backend URL:
    ```text
-   NEXT_PUBLIC_API_URL=[http://127.0.0.1:8000](http://127.0.0.1:8000)
+   NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
    ```
 4. Start the Next.js development server:
    ```bash
