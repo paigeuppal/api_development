@@ -58,3 +58,6 @@ To run this project locally, you will need to start both the Python backend and 
    npm run dev
    ```
    *The frontend dashboard will now be running at http://localhost:3000.*
+
+### Note for assessor:
+API Keys for testing of the admin only endpoints have been included in the technical report
